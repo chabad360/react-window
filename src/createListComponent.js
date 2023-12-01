@@ -619,7 +619,7 @@ export default function createListComponent({
     _getStickyItem(visibleStartIndex: number): number {
       const { itemSticky } = this.props;
 
-      for (let index = visibleStartIndex; index >= 0; index--) {
+      for (let index = visibleStartIndex-1; index >= 0; index--) {
         const sticky = itemSticky(index);
         if (sticky) {
           return index;
