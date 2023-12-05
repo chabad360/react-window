@@ -79,6 +79,7 @@ export type Props<T> = {|
   style?: Object,
   useIsScrolling: boolean,
   width: number | string,
+  onEmpty?: () => React$Node,
 |};
 
 type State = {|
@@ -327,6 +328,7 @@ export default function createListComponent({
         useIsScrolling,
         width,
         itemSticky,
+          onEmpty,
       } = this.props;
       const { isScrolling } = this.state;
 
@@ -346,9 +348,9 @@ export default function createListComponent({
 
       let items = [];
 
-      if (itemSticky != null) {
-        if (itemCount > 0) {
-          const stickyIndex = this._getStickyItem(visibleStartIndex);
+      if (itemCount > 0) {
+        if (itemSticky != null) {
+          let stickyIndex = this._getStickyItem(overscanStartIndex);
 
           for (
             let index = overscanStartIndex;
@@ -405,9 +407,7 @@ export default function createListComponent({
             }),
             ...items,
           ];
-        }
-      } else {
-        if (itemCount > 0) {
+        } else {
           for (
             let index = overscanStartIndex;
             index <= overscanStopIndex;
@@ -423,6 +423,10 @@ export default function createListComponent({
               })
             );
           }
+        }
+      } else {
+        if (onEmpty) {
+          items = [onEmpty()];
         }
       }
 
@@ -540,7 +544,7 @@ export default function createListComponent({
     // So that List can clear cached styles and force item re-render if necessary.
     _getItemStyle: (index: number) => Object;
     _getItemStyle = (index: number): Object => {
-      const { direction, itemSize, layout } = this.props;
+      const { direction, itemSize, layout, itemSticky } = this.props;
 
       const itemStyleCache = this._getItemStyleCache(
         shouldResetStyleCacheOnItemSizeChange && itemSize,
@@ -561,6 +565,7 @@ export default function createListComponent({
 
         const isRtl = direction === 'rtl';
         const offsetHorizontal = isHorizontal ? offset : 0;
+        const sticky = itemSticky && itemSticky(index);
         itemStyleCache[index] = style = {
           position: 'absolute',
           left: isRtl ? undefined : offsetHorizontal,
@@ -568,6 +573,7 @@ export default function createListComponent({
           top: !isHorizontal ? offset : 0,
           height: !isHorizontal ? size : '100%',
           width: isHorizontal ? size : '100%',
+          ...(sticky ? { top: sticky.top, position: 'sticky' } : {}),
         };
       }
 
@@ -579,7 +585,7 @@ export default function createListComponent({
 
     _getRangeToRender(): [number, number, number, number] {
       const { itemCount, overscanCount } = this.props;
-      const { isScrolling, scrollDirection, scrollOffset } = this.state;
+      const { scrollOffset } = this.state;
 
       if (itemCount === 0) {
         return [0, 0, 0, 0];
@@ -599,15 +605,8 @@ export default function createListComponent({
 
       // Overscan by one item in each direction so that tab/focus works.
       // If there isn't at least one extra item, tab loops back around.
-      const overscanBackward =
-        !isScrolling || scrollDirection === 'backward'
-          ? Math.max(1, overscanCount)
-          : 1;
-      const overscanForward =
-        !isScrolling || scrollDirection === 'forward'
-          ? Math.max(1, overscanCount)
-          : 1;
-
+      const overscanBackward = Math.max(1, overscanCount);
+      const overscanForward = Math.max(1, overscanCount);
       return [
         Math.max(0, startIndex - overscanBackward),
         Math.max(0, Math.min(itemCount - 1, stopIndex + overscanForward)),
@@ -619,7 +618,7 @@ export default function createListComponent({
     _getStickyItem(visibleStartIndex: number): number {
       const { itemSticky } = this.props;
 
-      for (let index = visibleStartIndex-2; index >= 0; index--) {
+      for (let index = visibleStartIndex - 2; index >= 0; index--) {
         const sticky = itemSticky(index);
         if (sticky) {
           return index;
